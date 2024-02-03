@@ -1,4 +1,11 @@
-## Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks (2020, RAG)
+
+<!-- TOC -->
+  * [Unsupervised Dense Information Retrieval with Contrastive Learning (2021, Contriever)](#unsupervised-dense-information-retrieval-with-contrastive-learning-2021-contriever)
+  * [Precise Zero-Shot Dense Retrieval without Relevance Labels (2022, HyDE)](#precise-zero-shot-dense-retrieval-without-relevance-labels-2022-hyde)
+  * [Query2doc: Query Expansion with Large Language Models (2023, Better HyDE)](#query2doc-query-expansion-with-large-language-models-2023-better-hyde)
+  * [Is ChatGPT Good at Search? Investigating Large Language Models as Re-Ranking Agents (2023)](#is-chatgpt-good-at-search-investigating-large-language-models-as-re-ranking-agents-2023)
+<!-- TOC -->
+
 
 --- 
 ## Unsupervised Dense Information Retrieval with Contrastive Learning (2021, Contriever)
@@ -14,7 +21,7 @@
 
 В архитектуре запросы и документы кодируются независимо, а скалярное произведение используется для оценки релевантности. В качестве энкодера используется один трансформер (в данной статье - BERT).
 
-### Constractive learning
+<h3> Constractive learning </h3>
 
 
 ![image info](images/contractive_loss.png)
@@ -23,7 +30,8 @@
 
 Функция потерь дает высокие оценки положительным парам и низкие оценки отрицательным. Другими словами, идея состоит в том, чтобы восстановить или извлечь все положительные документы среди всех отрицательных на основе запроса. Теперь вопрос в том, как выбирать положительные и отрицательные пары?
 
-### Стратегия выбора положительных пар
+<!-- omit in toc -->
+<h3> Стратегия выбора положительных пар </h3>
 
 
 1. Inverse cloze task - стратегия аугментации данных для генерации двух непересекающихся представлений документа. Первое представление - это выборка токенов из текста. Второе - дополнение первого представления (то есть оставшиеся токены, что не попали в выборку на первом шаге). ICT использует первое представление в качестве запроса и дополнение в качестве ключа. 
@@ -34,7 +42,8 @@
 
 3. Замена слов, удаление и т.д.
 
-### Стратегия выбора отрицательных пар
+
+<h3> Стратегия выбора отрицательных </h3>
 
 1. Внутри одного батча - использование одних и тех же ключей в одном батче. Однако для эффективности требуются чрезвычайно большие размеры батчей.
 
@@ -62,3 +71,72 @@
 **Ищем похожий документ:** Ожидается, что эмбеддер также выступает в роли компрессора, позволяющего отфильтровывать галлюцинации. Реальные документы сравниваются с полученным вектором, и извлекаются наиболее похожие из них. В качестве эмбеддера используется Contriever.
 
 ![image info](images/hyde_results.png)
+
+---
+
+## Query2doc: Query Expansion with Large Language Models (2023, Better HyDE)
+
+Метод для zero-shot retrieval с использованием псевдодокументов. Несмотря на то, что идея частично заимствована у HyDE, этот подход можно использовать как для dense, так и sparse retrieval.
+
+**Метод**
+
+Для запроса _q_ используется подход с несколькими примерами, при котором выбирается k _(k = 4)_ пар из обучающего набора. Затем формируется новый запрос путем конкатенации исходного запроса и псевдодокумента _d_.
+
+![image info](images/query2doc_prompt.png)
+
+
+**Sparse retrieval**
+
+
+Поскольку запрос, обычно, короче документа, его сбалансированность достигается путем повторения запроса n раз перед конкатенацией.
+
+![image info](images/query2doc_sparse.png)
+
+
+**Dense retrieval**
+
+
+Новый запрос представляет собой конкатенацию исходного запроса и документа без повторений.
+
+![image info](images/query2doc_dense.png)
+
+![image info](images/query2doc_metrics.png)
+
+![image info](images/query2doc_model_comparison.png)
+
+---
+
+## Is ChatGPT Good at Search? Investigating Large Language Models as Re-Ranking Agents (2023)
+
+Большинство методов в значительной степени зависят от ручных сигналов, которые требуют человека для разметки и демонстрируют слабую обобщаемость. Могут ли современные LLM превзойти настроенные модели в условиях zero-shot в задаче ранжирования? (Спойлер: могут)
+
+![image info](images/rankgpt_metrics_small.png)
+
+**Метод**
+
+Каждый фрагмент текста обозначается уникальным идентификатором ([1], [2] и т. д.). Мы просим LLM сгенерировать перестановку фрагментов в порядке убывания их релевантности к запросу в формате [2] > [3] > [1] > и т. д. (c на рисунке)
+
+![image info](images/rankgpt_prompt.png)
+
+
+**Скользящее окно**
+
+Из-за ограничений на количество токенов в LLM, предлагается использовать скользящее окно. В зависимости от размеров окна и шага LLM переранжирует фрагменты текста поочередно.
+
+![image info](images/rankgpt_sliding_window.png)
+
+![image info](images/rankgpt_metrics.png)
+
+![image info](images/rankgpt_model_comparison.png)
+
+**Дистилляция знаний**
+
+ChatGPT и GPT-4 дорогостоящи в использовании в коммерческих поисковых системах и в том числе могут увеличить задержку. Мы можем дистиллировать способности ChatGPT в маленькую модель.
+
+Для достижения этого из MS MARCO выбираются 10 000 запросов с 20 кандидатными фрагментами, полученными с помощью BM-25 для каждого запроса. В качестве функции потерь рассматривается потеря RankNet.
+
+![image info](images/rankgpt_loss.png)
+
+_r<sub>i</sub>_ - ранг фрагмента, _s<sub>i</sub>_ - оценка релевантности.
+
+![image info](images/rankgpt_distill_comparison.png)
